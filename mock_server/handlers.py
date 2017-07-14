@@ -56,6 +56,7 @@ class BaseHandler(tornado.web.RequestHandler):
             self.set_header(name, value)
 
     def log_request(self, response=None):
+        # print self.request
         data = {
             "method": self.request.method,
             "uri": self.request.uri,
@@ -179,6 +180,7 @@ class MainHandler(BaseHandler, HttpAuthBasicMixin):
         # get request data
         self.format = self._get_format(format)
         method = self.request.method
+        data = self.request.body
         self.status_code = int(self.get_argument("__statusCode", 200))
 
         # upstream server
@@ -192,7 +194,7 @@ class MainHandler(BaseHandler, HttpAuthBasicMixin):
         provider = rest.FilesMockProvider(self.api_dir)
 
         response = rest.resolve_request(
-            provider, method, url_path, self.status_code, self.format)
+            provider, method, url_path, data, self.request.uri, self.status_code, self.format)
 
         if provider.error:
             if self.api_data.upstream_server:
@@ -413,13 +415,13 @@ class CreateResourceMethodHandler(BaseHandler, FlashMessageMixin):
     def get(self, flash_messages=None):
         url_path = self.get_argument("url_path", "")
         method = self.get_argument("method", None)
-
+    
         method_file = ResourceMethod(
             self.api_dir, url_path, method)
         method_file.load_responses()
         method_file.load_description()
-
-        if method is None:
+        
+        if not method:
             category = ""
         else:
             category = self.api_data.get_category(method_file.id)
@@ -447,7 +449,7 @@ class CreateResourceMethodHandler(BaseHandler, FlashMessageMixin):
             method_file.description = data["description"]
             method_file.add_response(
                 response["status_code"], response["format"],
-                response["body"], response["headers"])
+                response["body"], response["headers"], response["req_key"])
             method_file.save()
 
             # add resource to category

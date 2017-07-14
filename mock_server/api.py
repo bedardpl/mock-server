@@ -19,10 +19,11 @@ class FilesMockProvider(six.with_metaclass(ABCMeta, object)):
 
 
 class Request(object):
-    def __init__(self, method="GET", url_path="", body=""):
+    def __init__(self, method="GET", url_path="", body="", uri=""):
         self.method = method
         self.url_path = url_path
         self.body = body
+        self.uri = uri
 
 
 class Response(object):

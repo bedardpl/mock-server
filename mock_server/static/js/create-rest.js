@@ -87,7 +87,6 @@ CreateRestMethodManager.prototype.addResponse = function() {
     return response;
 };
 
-
 function Response(id) {
     this._id = id;
     this._tab = null;
@@ -157,6 +156,7 @@ Response.prototype.setDefaults = function(data) {
     this._format.value = data['format'];
     this._responseBodyEditor.setValue(data['body']);
     this._responseHeadersEditor.setValue(data['headers']);
+    this._responseKeyEditor.setValue(data['req_key']);
 
     this._updateTabTitle();
 };
@@ -233,7 +233,23 @@ Response.prototype.build = function(supportedFormats) {
     responseBodyContainer.appendChild(responseBodyEditorDiv);
 
     this._container.appendChild(responseBodyContainer);
-
+    
+    // response required key
+    var responseKeyContainer = document.createElement('div');
+    responseKeyContainer.className = 'control-group';
+    label = document.createElement('label');
+    label.setAttribute('for', 'response_req_key');
+    label.innerHTML = 'Required key';
+    var responseKeyEditorDiv = document.createElement('div');
+    this._responseKeyEditor = ace.edit(responseKeyEditorDiv);
+    //this._setResponseKeyMode(this._format.value);
+    
+    responseKeyContainer.appendChild(label);
+    responseKeyContainer.appendChild(responseKeyEditorDiv);
+    
+    this._container.appendChild(responseKeyContainer);
+    
+    
     // response headers
     var responseHeadersContainer = document.createElement('div');
     responseHeadersContainer.className = 'control-group';
@@ -256,7 +272,8 @@ Response.prototype.getData = function() {
         'status_code': this._statusCode.value,
         'format': this._format.value,
         'body': this._responseBodyEditor.getValue(),
-        'headers': this._responseHeadersEditor.getValue()
+        'headers': this._responseHeadersEditor.getValue(),
+        'req_key': this._responseKeyEditor.getValue()
     };
 
     if (!data['body']) {

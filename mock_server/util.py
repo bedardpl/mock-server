@@ -11,14 +11,16 @@ from tornado.httputil import HTTPHeaders
 
 
 def read_file(filename):
-    if os.path.isfile(filename):
+    isfile = os.path.isfile(filename)
+    if isfile:
         try:
-            with open(filename) as f:
+            with open(filename,'r') as f:
                 content = f.read()
                 return content
         except IOError:
             logging.exception("Error in reading file: %s" % filename)
-            return None
+            print("Error in reading file: {}".format(filename))
+            return {}
 
 
 def generate_password(length=8):
@@ -44,6 +46,8 @@ class ExtendedJSONEncoder(json.JSONEncoder):
 
 
 def slugify(value, delimiter="-"):
+    if type(value) is not unicode:
+        value = unicode(value,'unicode-escape')
     slug = unicodedata.normalize("NFKD", value).encode("ascii", "ignore")
     slug = re.sub(r"[^\w]+", " ", slug)
     return delimiter.join(slug.lower().strip().split())

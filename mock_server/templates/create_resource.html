@@ -12,15 +12,12 @@ class="create-resource"
 
 <div class="span12">
     <div class="mb20" id="api-selection">
-
         {% if flash_messages %}{% for type, message in flash_messages %}
         <div class="alert alert-{{type}}">
           <button type="button" class="close" data-dismiss="alert">×</button>
           {% raw message %}
         </div>
         {% end %}{% end %}
-
-
         <label class="radio inline">
           <input type="radio" class="protocol" name="protocol" value="rest"{% if protocol == "rest" %} checked{% end %}> REST
         </label>
@@ -28,16 +25,13 @@ class="create-resource"
           <input type="radio" class="protocol" name="protocol" value="rpc"{% if protocol == "rpc" %} checked{% end %}> RPC (XML, <span{% if not jsonrpc %} id="jsonrpc"{% end %} data-content='The JSON-RPC handler requires jsonrpclib library, which you can get at <a href="http://github.com/joshmarshall/jsonrpclib" target="_blank">http://github.com/joshmarshall/jsonrpclib</a>'>JSON</span>)</label>
         </label>
     </div>
-
     <form class="form-horizontal{% if protocol != 'rest' %} hidden{% end %}" method="post" id="rest-form">
       <fieldset>
         {% module xsrf_form_html() %}
-
         <div class="control-group">
             <label for="url_path">Url path</label>
             <input type="text" name="url_path" id="url_path" value="{% if protocol == 'rest' %}{{method_file.url_path}}{% end %}" class="input-xlarge" required placeholder="Example: user/jonh">
         </div>
-
         <div class="control-group">
             <label for="method">Method</label>
             <select name="method" id="method">
@@ -46,12 +40,10 @@ class="create-resource"
                 {% end %}
             </select>
         </div>
-
         <div class="control-group">
             <label for="category">Category</label>
             <input type="text" name="category" id="category" autocomplete="off" value="{{category}}" class="input-xlarge" placeholder="Example: Users">
         </div>
-
         <div class="tabbable" id="responses">
           <ul class="nav nav-tabs" id="response-tabs">
             <li id="add-response-li"><a href="javascript:void(0)" id="add-response">Add response</a></li>
@@ -59,49 +51,40 @@ class="create-resource"
           <div class="tab-content" id="response-tabs-content">
           </div>
         </div>
-
         <div class="line"></div>
-
         <div class="wmd-panel">
             <label>Description</label>
             <div id="wmd-button-bar"></div>
             <textarea class="wmd-input" id="wmd-input" name="resource_description">{% if protocol == 'rest' and method_file.description %}{{method_file.description}}{% end %}</textarea>
         </div>
         <div id="wmd-preview" class="wmd-panel wmd-preview"></div>
-
         <div class="control-group">
           <button type="button" class="btn" id="save-resource">Save</button>
         </div>
       </fieldset>
     </form>
-
     <form class="form-horizontal{% if protocol != 'rpc' %} hidden{% end %}" method="post" action="/__manage/create/rpc" id="rpc-form">
         <fieldset>
             {% module xsrf_form_html() %}
-
             <div class="control-group">
                 <label for="method_name">Method name</label>
                 <input type="text" name="method_name" id="method_name" value="{% if protocol == "rpc" %}{{method_file.name}}{% end %}" required class="input-xlarge" placeholder="Example: examples.getName">
             </div>
-
             <div class="control-group">
                 <label for="rpc_category">Category</label>
                 <input type="text" name="category" id="rpc_category" autocomplete="off" value="{{category}}" class="input-xlarge" placeholder="Example: Users">
             </div>
-
             <div class="control-group">
                 <label>Method response <span class="text-warning" id="define-in-json" data-content='<b>Example:</b><br>{<br>"name": "Tomas",<br>"surname": "Hanacek"<br>}'>(Define in JSON)</span></label>
                 <div id="method-response-editor"></div>
                 <input type="hidden" name="method_response" id="method_response" />
             </div>
-
             <div class="wmd-panel">
                 <label>Description</label>
                 <div id="wmd-button-bar-rpc"></div>
                 <textarea class="wmd-input" id="wmd-input-rpc" name="description">{% if protocol == 'rpc' and method_file.description %}{{method_file.description}}{% end %}</textarea>
             </div>
             <div id="wmd-preview-rpc" class="wmd-panel wmd-preview"></div>
-
             <div class="control-group">
               <button type="submit" class="btn">Save</button>
             </div>

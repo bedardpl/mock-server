@@ -31,7 +31,7 @@
               <pre>{% for key, value in line["response"]["headers"] %}
                 {{key}}: {{value}}{% end %}
               </pre>
-
+              
               {% if line["response"]["body"] %}
               <strong>Response body</strong>
               <pre>{{line["response"]["body"]}}</pre>

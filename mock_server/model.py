@@ -1,9 +1,10 @@
 # -*- coding: utf-8 -*-
-import os
+import os, sys
 import re
 import json
 import glob
 import functools
+import json
 
 try:
     from collections import OrderedDict
@@ -165,6 +166,7 @@ class ApiData(object):
 
     def _get_resource_attribute(self, resource, key, default=""):
         # get method, status_code and url_path
+        print "resource:-->%s" % resource
         c = re.compile(r"(%s)-(.*)" %
                        ("|".join(SUPPORTED_METHODS)))
         m = c.match(resource)
@@ -211,11 +213,12 @@ class BaseMethod(object):
 
 class ResourceMethod(BaseMethod):
 
-    def __init__(self, api_dir, url_path, method):
+    def __init__(self, api_dir, url_path, method, req_key=''):
         super(ResourceMethod, self).__init__()
 
         self.url_path = url_path
         self.method = method
+        self.req_key = req_key
 
         file_url_path = get_file_path(url_path)
 
@@ -225,12 +228,9 @@ class ResourceMethod(BaseMethod):
         self.responses = []
 
     def load_responses(self):
-
         c = re.compile(r"%s_(\d{3})\.(\w+)" % self.method)
-
         if not os.path.exists(self.resource_dir):
             return
-
         for item in os.listdir(self.resource_dir):
             m = c.match(item)
             if m:
@@ -244,7 +244,16 @@ class ResourceMethod(BaseMethod):
                     os.path.join(
                         self.resource_dir,
                         "%s_H_%s.%s" % (self.method, status_code, format)))
-                self.add_response(status_code, format, body, headers)
+                keys = read_file(
+                    os.path.join(
+                        self.resource_dir,
+                        "%s_req_key_%s.%s" % (self.method, status_code, format)))
+                get_keys = '[]'
+                try:
+                    get_keys = json.dumps(json.loads(keys).get('required_key'))
+                except:
+                    print("exception:-->{},\n{}".format(sys.exc_info()[1], keys))
+                self.add_response(status_code, format, body, headers, req_key=get_keys)
 
     def load_description(self):
         self.description = read_file(
@@ -252,12 +261,13 @@ class ResourceMethod(BaseMethod):
                 self.resource_dir,
                 "%s_doc.md" % self.method))
 
-    def add_response(self, status_code, format, body, headers):
+    def add_response(self, status_code, format, body, headers, req_key=[]):
         self.responses.append({
             "status_code": status_code,
             "format": format,
             "body": body,
-            "headers": headers
+            "headers": headers,
+            "req_key": req_key
         })
 
     def save(self):
@@ -278,13 +288,21 @@ class ResourceMethod(BaseMethod):
         with open(description_path, "w") as f:
             f.write(utf8(self.description))
 
-    def save_response(self, status_code, format, body, headers):
+    def save_response(self, *args, **kwargs): #status_code, format, body, headers, req_key):       
+        status_code = kwargs.get('status_code')
+        format = kwargs.get('format')
+        body = kwargs.get('body')
+        headers = kwargs.get('headers')
+        req_key = kwargs.get('req_key')
         content_path = os.path.join(
             self.resource_dir,
             "%s_%s.%s" % (self.method, status_code, format))
         headers_path = os.path.join(
             self.resource_dir,
             "%s_H_%s.%s" % (self.method, status_code, format))
+        required_key = os.path.join(
+            self.resource_dir,
+            "%s_req_key_%s.%s" % (self.method, status_code, format))
 
         # write content
         with open(content_path, "w") as f:
@@ -293,6 +311,10 @@ class ResourceMethod(BaseMethod):
         # write headers
         with open(headers_path, "w") as f:
             f.write(utf8(headers))
+            
+        # write required_key
+        with open(required_key, "w") as f:
+            f.write(utf8('{"required_key":%s}' % req_key))
 
     def delete(self):
         # delete all resource method body and headers
@@ -302,11 +324,17 @@ class ResourceMethod(BaseMethod):
         headers_path = os.path.join(
             self.resource_dir,
             "%s_H_*" % self.method)
+        req_key_path = os.path.join(
+            self.resource_dir,
+            "%s_req_key_*" % self.method)
 
         for path in glob.glob(content_path):
             os.unlink(path)
 
         for path in glob.glob(headers_path):
+            os.unlink(path)
+        
+        for path in glob.glob(req_key_path):
             os.unlink(path)
 
         # delete description

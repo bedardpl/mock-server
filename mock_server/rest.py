@@ -1,58 +1,113 @@
 # -*- coding: utf-8 -*-
 
-import os
+import os, sys
 import re
 from . import api
 from . import util
+from . import httperror
 import tornado.httpclient
+import json
 
 from email.parser import Parser
 
-
 class FilesMockProvider(api.FilesMockProvider):
+    
+    def loadjson(self,jsondoc):
+        try:return json.loads(jsondoc.replace("'",'"'))
+        except:return {}
 
-    def __call__(self, request, status_code=200, format="json"):
-
+    def __call__(self, request, method, data, uri='', status_code=200, format="json"):
+        # print "*"*35
+        # print "request:\t{}\nmethod:\t{}\ndata:\t{}\nuri:\t{}\nstatus_code:\t{}\nformat:\t{}".format(request, method, data, uri, status_code, format)
+        # print "*"*35
+        
         self._request = request
         self._status_code = status_code
+        self._method = self._request.method
+        self._body = data.replace("'",'"') if data is not None else ''
         self._format = format
-
+        self._uri = uri
+        req_key_path = None
+        inreq = None
+        
+        self._body =  self.loadjson(self._body)
+        
         # prepare response
         response = api.Response()
 
         # get paths
         paths = self._get_path(self._get_filename())
-
         if not paths:
-            return self._error(response)
+            return self._error(response, status_code=404,
+                               url_path=self._request.url_path)
 
         content_path, file_url_path = paths
-
-        headers_path = os.path.join(file_url_path, self._get_header_filename())
-
         content = self._get_content(content_path)
-
+        headers_path = os.path.join(file_url_path, self._get_header_filename())
+        
+        # get the required key from the body of the request
+        req_key_path = os.path.join(file_url_path, self._get_required_key())
+        try:
+            req_key = json.loads(self._get_required_keys(req_key_path))
+        except:
+            req_key = {'required_key':[]}
+        
+        #that happen in the case no response file has been created for a given request
         if content is None:
-            return self._error(response)
-
+            return self._error(response,status_code=404,
+                               url_path=paths,method=self._method,
+                               out=self._format)
+        
+        if self._method == 'POST':
+            # retrieve all key from the query that are in the required key array 
+            inreq = [y for y in self._body.keys() if y in req_key.get('required_key')]
+        elif self._method == 'GET':
+            # retrieve url parameter
+            urlsplit=self._uri.split("?")
+            if len(urlsplit) > 1:
+                url_param = [x.split("=")[0] for x in urlsplit[1].split("&")]
+            else:
+                url_param = []
+            inreq = [y for y in url_param if y in req_key.get('required_key')]
+        
+        # compare the lenght of that previously created list with the required_key lenght
+        got_all_required = True if len(inreq) >= len(req_key.get('required_key')) else False
+        # if we don't have all required return error 401
+        if not got_all_required:
+            return self._error(response,
+                               status_code=401,
+                               missing_key=[x for x in req_key.get('required_key') if x not in inreq])
+        
         response.status_code = status_code
         response.content = content
         response.headers = self._get_headers(headers_path)
-
+        
+        # print("{}".format(response))
+        
         return response
 
-    def _error(self, response, status_code=404):
+    def _error(self, response, status_code=404, **kwargs):
         self.error = 1
-
-        response.content, response.headers = default_response(
-            self._request.method, self._request.url_path,
-            self._status_code, self._format)
-        response.status_code = status_code
-
+        answer = httperror.default_response(status_code=status_code,**kwargs)
+        response.status_code, response.content, response.headers = status_code, answer[0], answer[1]
         return response
-
+    
+    def _get_required_keys(self, regpath):
+        rval=''
+        try:
+            rval = util.read_file(regpath)
+        except:
+            print "{}:\texception:\t{}".format(regpath,sys.exc_info()[1])
+            rval = {}
+        return rval
+    
     def _get_content(self, content_path):
-        return util.read_file(content_path)
+        rval={}
+        try:
+            rval = util.read_file(content_path)
+        except:
+            print "{}:\texception:\t{}".format(content_path,sys.exc_info()[1])
+        return rval
 
     def _get_headers(self, headers_path):
         headers = []
@@ -72,14 +127,16 @@ class FilesMockProvider(api.FilesMockProvider):
     def _get_filename(self):
         return "%s_%s.%s" % (self._request.method,
                              self._status_code, self._format)
+    
+    def _get_required_key(self):
+        return "{}_req_key_{}.{}".format(self._request.method, self._status_code,self._format)
 
     def _get_header_filename(self):
         return "%s_H_%s.%s" % (self._request.method,
                                self._status_code, self._format)
-
+    
     def _get_path(self, filename):
         url_path = re.sub("/{2,}", "/", self._request.url_path, count=1)
-
         content_path = os.path.join(self._api_dir, url_path, filename)
 
         if os.path.isfile(content_path):
@@ -100,29 +157,24 @@ class FilesMockProvider(api.FilesMockProvider):
             m = c.match(path[0])
             if m:
                 return os.path.join(path[0], filename), path[0]
-
         return None
 
+def get_desired_response(provider, request, method, data, uri, status_code=200, format="json"):
+    response = provider(request, method, data, uri, status_code, format)
+    return response
 
-def get_desired_response(provider, request, status_code=200, format="json"):
-    resposne = provider(request, status_code, format)
-    return resposne
-
-
-def resolve_request(provider, method, url_path,
+def resolve_request(provider, method, url_path, data, uri,
                     status_code=200, format="json"):
-
+    request = api.Request(method, url_path, body=data, uri=uri)
     return get_desired_response(
-        provider, api.Request(method, url_path), status_code, format)
-
+        provider, request, method, data, uri, status_code, format)
 
 def default_response(method, url_path, status_code, format):
     content = \
-        'Api does\'t exists, <a href="/__manage/create?url_path=%s&'\
+        'Api response is not defined, <a href="/__manage/create?url_path=%s&'\
         'method=%s&status_code=%d&format=%s">create resource method</a>' %\
         (url_path, method, status_code, format)
     return content, [("Content-Type", "text/html")]
-
 
 class UpstreamServerProvider(api.UpstreamServerProvider):
 
@@ -170,7 +222,6 @@ class UpstreamServerProvider(api.UpstreamServerProvider):
 
         self._request_handler_callback(
             api.Response(data, headers, status_code))
-
 
 if __name__ == "__main__":
 
