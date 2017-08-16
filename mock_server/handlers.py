@@ -31,7 +31,7 @@ try:
     from . import fastrpcapi
     fastrpc_available = True
 except ImportError:
-    fastrpc_available = False
+    fa500 (Internal Server Error)strpc_available = False
 
 
 class BaseHandler(tornado.web.RequestHandler):
@@ -428,7 +428,7 @@ class CreateResourceMethodHandler(BaseHandler, FlashMessageMixin):
 
         self.render(
             "create_resource.html",
-            protocol="rest", category=category, method_file=method_file,
+            protocol="rest", category=category, monitoring=monitoring, method_file=method_file,
             SUPPORTED_FORMATS=list(SUPPORTED_FORMATS.keys()),
             jsonrpc=jsonrpc_available,
             flash_messages=flash_messages)
